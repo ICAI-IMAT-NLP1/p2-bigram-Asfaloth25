@@ -28,11 +28,12 @@ if __name__ == "__main__":
 
     # Count bigrams and convert to probabilities
     bigram_counts = count_bigrams(bigrams, char_to_idx)
-    bigram_probabilities = bigrams_count_to_probabilities(bigram_counts)
+    bigram_probabilities = bigrams_count_to_probabilities(bigram_counts, smooth_factor=0.4)
 
-    num_names_to_generate = 10
+    num_names_to_generate = 100
     print("Generated Names:")
     names = []
+    neg_log_likelihoods = [] ### I added this
     for _ in range(num_names_to_generate):
         new_name = generate_name(
             start_token, end_token, char_to_idx, idx_to_char, bigram_probabilities
@@ -41,8 +42,10 @@ if __name__ == "__main__":
             new_name, bigram_probabilities, char_to_idx, start_token, end_token
         )
         names.append(new_name.capitalize())
+        neg_log_likelihoods.append(neg_log_likelihood) ### I added this
         print(f"{new_name.capitalize()}: NLL = {neg_log_likelihood}")
 
+    print(sorted(zip(neg_log_likelihoods, names))) ### I added this
     # Print mean negative log likelihood
     mean_neg_log_likelihood = calculate_neg_mean_log_likelihood(
         names, bigram_probabilities, char_to_idx, start_token, end_token

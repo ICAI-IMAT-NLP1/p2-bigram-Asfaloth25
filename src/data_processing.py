@@ -2,10 +2,11 @@ from typing import List, Tuple, Dict
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
+from collections import Counter # para contar las ocurrencias de cada bigrama
 
 
 def load_and_preprocess_data(
-    filepath: str, start_token: str = "!", end_token: str = "."
+    filepath: str, start_token: str = "<S>", end_token: str = "<E>"
 ) -> List[Tuple[str, str]]:
     """
     Load text from a file and preprocess them into bigrams with specified start and end tokens.
@@ -26,11 +27,21 @@ def load_and_preprocess_data(
     Returns:
         List[Tuple[str, str]]. A list of bigrams, where each bigram is a tuple of two characters.
     """
-    with open(filepath, "r") as file:
+    with open(filepath, "r", encoding='utf-8') as file: # he cambiado el encoding para que lea bien las "ñ"s.
         lines: List[str] = file.read().splitlines()
-
+        ''.isalpha()
+    
     # TODO
-    bigrams: List[Tuple[str, str]] = None
+    clean_names_func = lambda x: "".join(word + ' ' for word in x.split(' ')[:-2])[:-1].lower()
+    lines_filtered = map(clean_names_func, lines)
+
+    tokenize_func = lambda x: [start_token, *x, end_token]
+    lines_tokenized = map(tokenize_func, lines_filtered)
+
+    bigram_func = lambda x: [(x[i], x[i+1]) for i in range(len(x)-1)]
+    lines_bigramized = map(bigram_func, lines_tokenized)
+
+    bigrams: List[Tuple[str, str]] = [item for l in lines_bigramized for item in l]
 
     return bigrams
 
@@ -49,8 +60,8 @@ def char_to_index(alphabet: str, start_token: str, end_token: str) -> Dict[str, 
     """
     # Create a dictionary with start token at the beginning and end token at the end
     # TODO
-    char_to_idx: Dict[str, int] = None
-
+    
+    char_to_idx: Dict[str, int] = {val:i for i, val in enumerate([start_token, *alphabet, end_token])}
     return char_to_idx
 
 
@@ -66,8 +77,7 @@ def index_to_char(char_to_index: Dict[str, int]) -> Dict[int, str]:
     """
     # Reverse the char_to_index mapping
     # TODO
-    idx_to_char: Dict[int, str] = None
-
+    idx_to_char: Dict[int, str] = {char_to_index[k]:k for k in char_to_index}
     return idx_to_char
 
 
@@ -92,11 +102,19 @@ def count_bigrams(
     """
 
     # Initialize a 2D tensor for counting bigrams
-    # TODO
-    bigram_counts: torch.Tensor = None
+    alphabet_length : int = len(char_to_idx)
+    bigram_counts: torch.Tensor = torch.zeros((alphabet_length, alphabet_length))
 
     # Iterate over each bigram and update the count in the tensor
-    # TODO
+    get_bigram_index_func = lambda x: (char_to_idx[x[0]], char_to_idx[x[1]]) if x[0] in char_to_idx and x[1] in char_to_idx else None # convierto primero a índices porque serán los mismos índices del tensor a modificar
+    bigrams_indices = map(get_bigram_index_func, bigrams)
+
+    # Esto ahorra modificar cada elemento de la matriz para cada ocurrencia de éste. En vez de eso, modifico cada elemento una sola vez
+    occurences:dict = Counter(bigrams_indices) # realmente no es un diccionario, pero se comporta como tal...
+    occurences.pop(None, None) # eliminando aquéllos que no estén en el vocabulario.
+
+    for o in occurences:
+        bigram_counts[o] = occurences[o]
 
     return bigram_counts
 
@@ -129,7 +147,7 @@ if __name__ == "__main__":
     file_path: str = "data/nombres_raw.txt"
 
     # Define the alphabet (ensure it covers all characters in your data)
-    alphabet: str = "abcdefghijklmnopqrstuvwxyz "
+    alphabet: str = "abcdefghijklmnopqrstuvwxyz " # + 'çñ' # añado estos dos elementos para que los detecte bien. Podría simplemente ignorar las ocurrencias que los tienen.
 
     start_token: str = "-"
     end_token: str = "."
